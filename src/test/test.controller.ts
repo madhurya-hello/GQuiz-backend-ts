@@ -1,19 +1,25 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Post, Body } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { TestItem } from './test.entity';
 
-@Controller('test') // This sets the base route to /test
+@Controller('test')
 export class TestController {
+  constructor(
+    @InjectRepository(TestItem)
+    private testRepository: Repository<TestItem>,
+  ) {}
 
-  @Get('hello') // This sets the endpoint to /test/hello
-  getHello(): string {
-    return 'This is my first NestJS API response!';
+  // 1. Create a new item (Test writing to DB)
+  @Post()
+  create(@Body('name') name: string) {
+    const newItem = this.testRepository.create({ name });
+    return this.testRepository.save(newItem);
   }
 
-  @Get('data') // This sets the endpoint to /test/data
-  getJsonData() {
-    return { 
-      status: 'success', 
-      message: 'API is working', 
-      timestamp: new Date() 
-    };
+  // 2. Get all items (Test reading from DB)
+  @Get()
+  findAll() {
+    return this.testRepository.find();
   }
 }
