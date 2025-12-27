@@ -1,0 +1,96 @@
+import { Injectable, BadRequestException, UnauthorizedException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { UsersService } from '../users/users.service';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private usersService: UsersService,
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {}
+
+  // SIGN UP
+  async signup(createUserDto: any) {
+    const { email, password } = createUserDto;
+    
+    // Check if user exists
+    const userExists = await this.usersService.findByEmail(email);
+    if (userExists) throw new BadRequestException('User already exists');
+
+    // Hash password
+    const hashPassword = await bcrypt.hash(password, 10);
+    
+    // Create User
+    const newUser = await this.usersService.create({ 
+      email, 
+      password: hashPassword 
+    });
+
+    // Generate Tokens
+    const tokens = await this.getTokens(newUser.id, newUser.email);
+    await this.updateRefreshToken(newUser.id, tokens.refreshToken);
+    
+    return tokens;
+  }
+
+  // SIGN IN
+  async signin(data: any) {
+    const { email, password } = data;
+    const user = await this.usersService.findByEmail(email);
+    
+    if (!user) throw new BadRequestException('Invalid Credentials');
+
+    const passwordMatches = await bcrypt.compare(password, user.password);
+    if (!passwordMatches) throw new BadRequestException('Invalid Credentials');
+
+    const tokens = await this.getTokens(user.id, user.email);
+    await this.updateRefreshToken(user.id, tokens.refreshToken);
+    
+    return tokens;
+  }
+
+  // REFRESH TOKENS
+  async refreshTokens(userId: number, refreshToken: string) {
+    const user = await this.usersService.findById(userId);
+    if (!user || !user.refreshToken) throw new UnauthorizedException('Access Denied');
+
+    const refreshTokenMatches = await bcrypt.compare(refreshToken, user.refreshToken);
+    if (!refreshTokenMatches) throw new UnauthorizedException('Access Denied');
+
+    const tokens = await this.getTokens(user.id, user.email);
+    await this.updateRefreshToken(user.id, tokens.refreshToken);
+    
+    return tokens;
+  }
+
+  // HELPER: Generate JWTs
+  async getTokens(userId: number, email: string) {
+    const [accessToken, refreshToken] = await Promise.all([
+      this.jwtService.signAsync(
+        { sub: userId, email },
+        { 
+          secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
+          expiresIn: '5h',
+        },
+      ),
+      this.jwtService.signAsync(
+        { sub: userId, email },
+        { 
+          secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+          expiresIn: '30d',
+        },
+      ),
+    ]);
+
+    return { accessToken, refreshToken };
+  }
+
+  // HELPER: Hash and save Refresh Token
+  async updateRefreshToken(userId: number, refreshToken: string) {
+    const hash = await bcrypt.hash(refreshToken, 10);
+    await this.usersService.update(userId, { refreshToken: hash });
+  }
+}
