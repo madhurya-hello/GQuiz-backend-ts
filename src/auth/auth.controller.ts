@@ -1,4 +1,4 @@
-import { Controller, Post, Body,Headers, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body,Headers, Get, UseGuards, Req ,BadRequestException} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
@@ -10,11 +10,19 @@ export class AuthController {
   @Post('signup')
   signup(
     @Body() createUserDto: any,
-    @Headers('x-client-type') clientType: string // <--- How to read it
+    @Headers('x-client-type') clientType: string,
+    @Headers('x-device-key') deviceKey: string // 🟢 1. Read the header
   ) {
-    // You can now pass 'clientType' to your service if you want
-    console.log('User signing up from:', clientType); 
-    return this.authService.signup(createUserDto);
+    console.log('Client Type:', clientType);
+    console.log('Device Key:', deviceKey);
+
+    // 🟢 RECOMMENDATION APPLIED: Validate Device Key for Mobile
+    if (clientType === 'mobile' && !deviceKey) {
+      throw new BadRequestException('Device key is missing. Please restart the app.');
+    }
+
+    // 🟢 2. Pass the deviceKey separately to the service
+    return this.authService.signup(createUserDto, deviceKey);
   }
 
   @Post('signin')

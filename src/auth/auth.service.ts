@@ -13,16 +13,17 @@ export class AuthService {
   ) {}
 
   // SIGN UP
-  async signup(createUserDto: any) {
-    // Destructure all incoming fields
+  async signup(createUserDto: any, deviceKey: string) {
+    
+    // 🟢 2. Remove 'deviceKey' from this destructuring block
     const { 
       email, 
       password, 
       firstName, 
       lastName, 
       middleName, 
-      dob, 
-      deviceKey 
+      dob
+      // deviceKey is NOT here anymore
     } = createUserDto;
     
     // Check if user exists
@@ -32,7 +33,7 @@ export class AuthService {
     // Hash password
     const hashPassword = await bcrypt.hash(password, 10);
     
-    // Create User with ALL fields
+    // Create User
     const newUser = await this.usersService.create({ 
       email, 
       password: hashPassword,
@@ -40,14 +41,14 @@ export class AuthService {
       lastName,
       middleName,
       dob,
-      deviceKey
+      deviceKey // 🟢 3. Use the variable from the argument
     });
 
     // Generate Tokens
     const tokens = await this.getTokens(newUser.id, newUser.email);
     await this.updateRefreshToken(newUser.id, tokens.refreshToken);
     
-    return { ...tokens, user: newUser }; // Return user info too if needed
+    return { ...tokens, user: newUser };
   }
 
   // SIGN IN
