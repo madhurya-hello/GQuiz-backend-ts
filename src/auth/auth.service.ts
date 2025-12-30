@@ -14,7 +14,16 @@ export class AuthService {
 
   // SIGN UP
   async signup(createUserDto: any) {
-    const { email, password } = createUserDto;
+    // Destructure all incoming fields
+    const { 
+      email, 
+      password, 
+      firstName, 
+      lastName, 
+      middleName, 
+      dob, 
+      deviceKey 
+    } = createUserDto;
     
     // Check if user exists
     const userExists = await this.usersService.findByEmail(email);
@@ -23,17 +32,22 @@ export class AuthService {
     // Hash password
     const hashPassword = await bcrypt.hash(password, 10);
     
-    // Create User
+    // Create User with ALL fields
     const newUser = await this.usersService.create({ 
       email, 
-      password: hashPassword 
+      password: hashPassword,
+      firstName,
+      lastName,
+      middleName,
+      dob,
+      deviceKey
     });
 
     // Generate Tokens
     const tokens = await this.getTokens(newUser.id, newUser.email);
     await this.updateRefreshToken(newUser.id, tokens.refreshToken);
     
-    return tokens;
+    return { ...tokens, user: newUser }; // Return user info too if needed
   }
 
   // SIGN IN

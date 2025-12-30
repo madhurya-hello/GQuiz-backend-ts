@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body,Headers, Get, UseGuards, Req } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { AuthGuard } from '@nestjs/passport';
 import { Request } from 'express';
@@ -8,7 +8,12 @@ export class AuthController {
   constructor(private authService: AuthService) {}
 
   @Post('signup')
-  signup(@Body() createUserDto: any) {
+  signup(
+    @Body() createUserDto: any,
+    @Headers('x-client-type') clientType: string // <--- How to read it
+  ) {
+    // You can now pass 'clientType' to your service if you want
+    console.log('User signing up from:', clientType); 
     return this.authService.signup(createUserDto);
   }
 
