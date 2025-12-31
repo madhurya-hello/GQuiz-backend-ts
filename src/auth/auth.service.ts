@@ -13,8 +13,18 @@ export class AuthService {
   ) {}
 
   // SIGN UP
-  async signup(createUserDto: any) {
-    const { email, password } = createUserDto;
+  async signup(createUserDto: any, deviceKey: string) {
+    
+    // 🟢 2. Remove 'deviceKey' from this destructuring block
+    const { 
+      email, 
+      password, 
+      firstName, 
+      lastName, 
+      middleName, 
+      dob
+      // deviceKey is NOT here anymore
+    } = createUserDto;
     
     // Check if user exists
     const userExists = await this.usersService.findByEmail(email);
@@ -26,14 +36,19 @@ export class AuthService {
     // Create User
     const newUser = await this.usersService.create({ 
       email, 
-      password: hashPassword 
+      password: hashPassword,
+      firstName,
+      lastName,
+      middleName,
+      dob,
+      deviceKey // 🟢 3. Use the variable from the argument
     });
 
     // Generate Tokens
     const tokens = await this.getTokens(newUser.id, newUser.email);
     await this.updateRefreshToken(newUser.id, tokens.refreshToken);
     
-    return tokens;
+    return { ...tokens, user: newUser };
   }
 
   // SIGN IN
