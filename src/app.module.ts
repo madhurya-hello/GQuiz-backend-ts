@@ -8,6 +8,7 @@ import { TestItem } from './test/test.entity';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ClassesModule } from './classes/classes.module';
+import { QuizModule } from './quiz/quiz.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { ClassesModule } from './classes/classes.module';
     UsersModule,
     AuthModule,
     ClassesModule,
+    QuizModule,
   ],
   controllers: [AppController, TestController],
   providers: [AppService],
