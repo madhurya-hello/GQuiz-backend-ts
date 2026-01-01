@@ -75,7 +75,7 @@ export class ClassesService {
       }
 
       await queryRunner.commitTransaction();
-      return { message: 'Class created successfully', classId: savedClass.id };
+      return { message: 'Class created successfully', class_id: savedClass.id };
 
     } catch (err) {
       await queryRunner.rollbackTransaction();

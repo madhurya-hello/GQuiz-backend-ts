@@ -95,7 +95,7 @@ export class QuizService {
       }
 
       await queryRunner.commitTransaction();
-      return { message: 'Quiz created successfully', quizId: savedQuiz.id };
+      return { message: 'Quiz created successfully', quiz_id: savedQuiz.id };
 
     } catch (err) {
       await queryRunner.rollbackTransaction();
