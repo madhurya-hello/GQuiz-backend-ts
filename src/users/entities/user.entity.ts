@@ -1,4 +1,6 @@
-import { Entity, Column, PrimaryGeneratedColumn } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, OneToOne, ManyToMany, JoinTable, CreateDateColumn } from 'typeorm';
+import { UserProfile } from './user-profile.entity';
+import { Quiz } from '../../quiz/entities/quiz.entity';
 
 @Entity()
 export class User {
@@ -11,22 +13,25 @@ export class User {
   @Column()
   password: string;
 
-  // --- NEW FIELDS ---
-  @Column()
-  firstName: string;
+  @CreateDateColumn({ name: 'account_created' })
+  accountCreated: Date;
 
-  @Column()
-  lastName: string;
-
-  @Column({ nullable: true })
-  middleName: string;
-
-  @Column({ nullable: true })
-  dob: string;
-
-  @Column({ nullable: true }) // Storing the device key
+  @Column({ nullable: true, name: 'device_key' })
   deviceKey: string;
 
-  @Column({ nullable: true })
+  @Column({ nullable: true, name: 'refresh_token' })
   refreshToken: string;
+
+  // --- RELATIONS ---
+  
+  @OneToOne(() => UserProfile, (profile) => profile.user, { cascade: true })
+  profile: UserProfile;
+
+  @ManyToMany(() => Quiz)
+  @JoinTable({
+    name: 'user_starred_quizzes',
+    joinColumn: { name: 'user_id', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'quiz_id', referencedColumnName: 'id' },
+  })
+  starredQuizzes: Quiz[];
 }
