@@ -9,7 +9,7 @@ import { QuestionOption } from './entities/question-option.entity';
 export class QuizService {
   constructor(private dataSource: DataSource) {}
 
-  async create(createQuizDto: any) {
+  async create(createQuizDto: any, userId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -17,6 +17,15 @@ export class QuizService {
     try {
       // 1. Create the Quiz Root
       const quiz = new Quiz();
+
+      quiz.user_id = userId;
+
+      if (createQuizDto.class_id) {
+        quiz.class_id = +createQuizDto.class_id; 
+      } else {
+        quiz.class_id = null;
+      }
+
       quiz.name = createQuizDto.name;
       quiz.description = createQuizDto.description;
       quiz.status = createQuizDto.status;
