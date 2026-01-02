@@ -9,6 +9,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { ClassesModule } from './classes/classes.module';
 import { QuizModule } from './quiz/quiz.module';
+import { AnnouncementsModule } from './announcements/announcements.module';
 
 @Module({
   imports: [
@@ -28,6 +29,7 @@ import { QuizModule } from './quiz/quiz.module';
     AuthModule,
     ClassesModule,
     QuizModule,
+    AnnouncementsModule,
   ],
   controllers: [AppController, TestController],
   providers: [AppService],
