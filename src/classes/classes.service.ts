@@ -1,19 +1,32 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import { Class } from './entities/class.entity';
 import { ClassMember, MemberRole, MemberStatus } from './entities/class-member.entity';
 import { ClassQuiz } from './entities/class-quiz.entity';
 import { CreateClassDto } from './dto/create-class.dto';
+import { Quiz } from '../quiz/entities/quiz.entity';
 
 @Injectable()
 export class ClassesService {
   constructor(
     @InjectRepository(Class) private classRepo: Repository<Class>,
+    @InjectRepository(Quiz) private quizRepo: Repository<Quiz>,
     private dataSource: DataSource, 
   ) {}
 
   async create(dto: CreateClassDto) {
+
+    // Validate Quiz IDs
+    if (dto.quizzes_involved && dto.quizzes_involved.length > 0) {
+        const count = await this.quizRepo.count({
+            where: { id: In(dto.quizzes_involved) }
+        });
+        if (count !== dto.quizzes_involved.length) {
+            throw new BadRequestException('One or more quiz IDs in "quizzes_involved" are invalid.');
+        }
+    }
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();

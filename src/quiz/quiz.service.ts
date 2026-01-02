@@ -4,6 +4,7 @@ import { Quiz } from './entities/quiz.entity';
 import { QuizSection } from './entities/quiz-section.entity';
 import { Question } from './entities/question.entity';
 import { QuestionOption } from './entities/question-option.entity';
+import { ClassQuiz } from '../classes/entities/class-quiz.entity';
 
 @Injectable()
 export class QuizService {
@@ -42,6 +43,14 @@ export class QuizService {
       quiz.access_control = createQuizDto.quiz_access;
 
       const savedQuiz = await queryRunner.manager.save(quiz);
+
+      // If linked to a class, update the ClassQuiz table
+      if (savedQuiz.class_id) {
+        const classQuiz = new ClassQuiz();
+        classQuiz.class_id = savedQuiz.class_id;
+        classQuiz.quiz_id = savedQuiz.id;
+        await queryRunner.manager.save(classQuiz);
+      }
 
       // 2. Process Sections
       const incomingSections = createQuizDto.quiz_section.sections;
