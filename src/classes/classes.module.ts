@@ -5,9 +5,10 @@ import { ClassesController } from './classes.controller';
 import { Class } from './entities/class.entity';
 import { ClassMember } from './entities/class-member.entity';
 import { ClassQuiz } from './entities/class-quiz.entity';
+import { Quiz } from '../quiz/entities/quiz.entity';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([Class, ClassMember, ClassQuiz])],
+  imports: [TypeOrmModule.forFeature([Class, ClassMember, ClassQuiz, Quiz])],
   controllers: [ClassesController],
   providers: [ClassesService],
 })

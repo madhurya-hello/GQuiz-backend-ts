@@ -5,9 +5,6 @@ export class CreateClassDto {
   @IsDateString()
   date_created: string;
 
-  @IsString() 
-  owner_id: string; 
-
   @IsString()
   name: string;
 
@@ -43,6 +40,9 @@ export class CreateClassDto {
 
   @IsBoolean()
   approval_required: boolean;
+
+  @IsString()
+  banner_type: string;
 
   @IsString()
   banner_url: string;

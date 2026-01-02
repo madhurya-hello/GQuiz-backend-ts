@@ -4,12 +4,13 @@ import { Quiz } from './entities/quiz.entity';
 import { QuizSection } from './entities/quiz-section.entity';
 import { Question } from './entities/question.entity';
 import { QuestionOption } from './entities/question-option.entity';
+import { ClassQuiz } from '../classes/entities/class-quiz.entity';
 
 @Injectable()
 export class QuizService {
   constructor(private dataSource: DataSource) {}
 
-  async create(createQuizDto: any) {
+  async create(createQuizDto: any, userId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -17,6 +18,15 @@ export class QuizService {
     try {
       // 1. Create the Quiz Root
       const quiz = new Quiz();
+
+      quiz.user_id = userId;
+
+      if (createQuizDto.class_id) {
+        quiz.class_id = +createQuizDto.class_id; 
+      } else {
+        quiz.class_id = null;
+      }
+
       quiz.name = createQuizDto.name;
       quiz.description = createQuizDto.description;
       quiz.status = createQuizDto.status;
@@ -33,6 +43,14 @@ export class QuizService {
       quiz.access_control = createQuizDto.quiz_access;
 
       const savedQuiz = await queryRunner.manager.save(quiz);
+
+      // If linked to a class, update the ClassQuiz table
+      if (savedQuiz.class_id) {
+        const classQuiz = new ClassQuiz();
+        classQuiz.class_id = savedQuiz.class_id;
+        classQuiz.quiz_id = savedQuiz.id;
+        await queryRunner.manager.save(classQuiz);
+      }
 
       // 2. Process Sections
       const incomingSections = createQuizDto.quiz_section.sections;

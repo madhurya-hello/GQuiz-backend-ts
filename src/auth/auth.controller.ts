@@ -11,17 +11,17 @@ export class AuthController {
   signup(
     @Body() createUserDto: any,
     @Headers('x-client-type') clientType: string,
-    @Headers('x-device-key') deviceKey: string // 🟢 1. Read the header
+    @Headers('x-device-key') deviceKey: string
   ) {
     console.log('Client Type:', clientType);
     console.log('Device Key:', deviceKey);
 
-    // 🟢 RECOMMENDATION APPLIED: Validate Device Key for Mobile
+    // Validate Device Key for Mobile
     if (clientType === 'mobile' && !deviceKey) {
       throw new BadRequestException('Device key is missing. Please restart the app.');
     }
 
-    // 🟢 2. Pass the deviceKey separately to the service
+    // Pass the deviceKey separately to the service
     return this.authService.signup(createUserDto, deviceKey);
   }
 
@@ -30,9 +30,10 @@ export class AuthController {
     return this.authService.signin(data);
   }
 
+  @UseGuards(AuthGuard('jwt'))
   @Post('refresh')
-  refreshTokens(@Body() body: any) {
-    // Body should be { userId: 1, refreshToken: "..." }
-    return this.authService.refreshTokens(body.userId, body.refreshToken);
+  refreshTokens(@Req() req: any, @Body() body: any) {
+    const userId = req.user.sub; 
+    return this.authService.refreshTokens(userId, body.refreshToken);
   }
 }

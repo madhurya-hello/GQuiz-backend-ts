@@ -12,48 +12,38 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  // SIGN UP
   async signup(createUserDto: any, deviceKey: string) {
+    const { email, password, firstName, lastName, middleName, dob } = createUserDto;
     
-    // 🟢 2. Remove 'deviceKey' from this destructuring block
-    const { 
-      email, 
-      password, 
-      firstName, 
-      lastName, 
-      middleName, 
-      dob
-      // deviceKey is NOT here anymore
-    } = createUserDto;
-    
-    // Check if user exists
     const userExists = await this.usersService.findByEmail(email);
     if (userExists) throw new BadRequestException('User already exists');
 
-    // Hash password
     const hashPassword = await bcrypt.hash(password, 10);
     
-    // Create User
-    const newUser = await this.usersService.create({ 
-      email, 
-      password: hashPassword,
-      firstName,
-      lastName,
-      middleName,
-      dob,
-      deviceKey // 🟢 3. Use the variable from the argument
-    });
+    const newUser = await this.usersService.createWithProfile(
+      { 
+        email, 
+        password: hashPassword, 
+        deviceKey 
+      },
+      {
+        firstName,
+        lastName,
+        middleName,
+        dob 
+      }
+    );
 
-    // Generate Tokens
     const tokens = await this.getTokens(newUser.id, newUser.email);
     await this.updateRefreshToken(newUser.id, tokens.refreshToken);
     
     return { ...tokens, user: newUser };
   }
 
-  // SIGN IN
   async signin(data: any) {
     const { email, password } = data;
+    
+    // Light fetch
     const user = await this.usersService.findByEmail(email);
     
     if (!user) throw new BadRequestException('Invalid Credentials');
@@ -63,11 +53,16 @@ export class AuthService {
 
     const tokens = await this.getTokens(user.id, user.email);
     await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+    // Heavy fetch
+    const fullUser = await this.usersService.findByIdWithRelations(user.id);
     
-    return tokens;
+    return { 
+      ...tokens, 
+      user: fullUser 
+    };
   }
 
-  // REFRESH TOKENS
   async refreshTokens(userId: number, refreshToken: string) {
     const user = await this.usersService.findById(userId);
     if (!user || !user.refreshToken) throw new UnauthorizedException('Access Denied');
