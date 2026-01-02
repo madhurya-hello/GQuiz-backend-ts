@@ -15,7 +15,7 @@ export class ClassesService {
     private dataSource: DataSource, 
   ) {}
 
-  async create(dto: CreateClassDto) {
+  async create(dto: CreateClassDto, ownerId: number) {
 
     // Validate Quiz IDs
     if (dto.quizzes_involved && dto.quizzes_involved.length > 0) {
@@ -36,12 +36,13 @@ export class ClassesService {
       const newClass = this.classRepo.create({
         name: dto.name,
         description: dto.description,
+        banner_type: dto.banner_type,
         banner_url: dto.banner_url,
         purpose: dto.purpose,
         category: dto.category,
         subject: dto.subject,
         approval_required: dto.approval_required,
-        owner_id: parseInt(dto.owner_id), 
+        owner_id: ownerId,
         allowed_email_domains: dto.allowed_email_domains,
         allowed_emails: dto.allowed_emails,
         restricted_email_domains: dto.restricted_email_domains,

@@ -13,6 +13,9 @@ export class Class {
   description: string;
 
   @Column()
+  banner_type: string;
+
+  @Column()
   banner_url: string;
 
   @Column()
