@@ -111,4 +111,11 @@ export class UsersService {
 
     return { message: 'Profile updated successfully' };
   }
+
+  async findByIdWithRelations(id: number): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id },
+      relations: ['profile', 'starredQuizzes'], 
+    });
+  }
 }

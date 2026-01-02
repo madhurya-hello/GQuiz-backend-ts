@@ -42,6 +42,8 @@ export class AuthService {
 
   async signin(data: any) {
     const { email, password } = data;
+    
+    // Light fetch
     const user = await this.usersService.findByEmail(email);
     
     if (!user) throw new BadRequestException('Invalid Credentials');
@@ -51,8 +53,14 @@ export class AuthService {
 
     const tokens = await this.getTokens(user.id, user.email);
     await this.updateRefreshToken(user.id, tokens.refreshToken);
+
+    // Heavy fetch
+    const fullUser = await this.usersService.findByIdWithRelations(user.id);
     
-    return tokens;
+    return { 
+      ...tokens, 
+      user: fullUser 
+    };
   }
 
   async refreshTokens(userId: number, refreshToken: string) {
