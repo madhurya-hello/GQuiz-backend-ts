@@ -1,7 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
 import { QuizSection } from './quiz-section.entity';
 import { User } from '../../users/entities/user.entity';
-import { Class } from '../../classes/entities/class.entity';
 
 @Entity()
 export class Quiz {
@@ -26,11 +25,23 @@ export class Quiz {
   @Column()
   quiz_duration: number; 
 
+  @Column({ type: 'timestamp', nullable: true })
+  result_declared: Date;
+
   @Column({ type: 'json' })
   settings: Record<string, any>; 
 
-  @Column({ type: 'json' })
-  access_control: Record<string, any>;
+  @Column('simple-json', { nullable: true })
+  allowed_emails: string[];
+
+  @Column('simple-json', { nullable: true })
+  blocked_emails: string[];
+
+  @Column('simple-json', { nullable: true })
+  allowed_email_domains: string[];
+
+  @Column('simple-json', { nullable: true })
+  blocked_email_domains: string[];
 
   @OneToMany(() => QuizSection, (section) => section.quiz, { cascade: true })
   sections: QuizSection[];
@@ -40,12 +51,5 @@ export class Quiz {
 
   @ManyToOne(() => User, (user) => user.id)
   @JoinColumn({ name: 'user_id' })
-  creator: User;
-
-  @Column({ nullable: true })
-  class_id: number | null;
-
-  @ManyToOne(() => Class, (cls) => cls.id, { nullable: true })
-  @JoinColumn({ name: 'class_id' })
-  class: Class;
+  creator: User; 
 }
