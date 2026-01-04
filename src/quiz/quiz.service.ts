@@ -6,6 +6,8 @@ import { Question } from './entities/question.entity';
 import { QuestionOption } from './entities/question-option.entity';
 import { ClassQuiz } from '../classes/entities/class-quiz.entity';
 import { ClassMember } from '../classes/entities/class-member.entity';
+import { UserRecentActivity, ActivityEntityType } from '../users/entities/user-recent-activity.entity';
+import { MemberStatus } from '../classes/entities/class-member.entity';
 
 @Injectable()
 export class QuizService {
@@ -53,6 +55,27 @@ export class QuizService {
           return cq;
         });
         await queryRunner.manager.save(ClassQuiz, classQuizzesToSave);
+
+        // Add to Recent Activity
+        const activeMembers = await queryRunner.manager.find(ClassMember, {
+            where: { 
+                class_id: In(allowedClassIds),
+                status: MemberStatus.ACTIVE 
+            },
+            select: ['user_id']
+        });
+        if (activeMembers.length > 0) {
+            const uniqueUserIds = [...new Set(activeMembers.map(m => m.user_id))];
+            const activities = uniqueUserIds.map(userId => {
+                const activity = new UserRecentActivity();
+                activity.user_id = userId;
+                activity.entity_type = ActivityEntityType.QUIZ;
+                activity.entity_id = savedQuiz.id;
+                activity.last_interacted_at = new Date();
+                return activity;
+            });
+            await queryRunner.manager.save(UserRecentActivity, activities);
+        }
       }
 
 

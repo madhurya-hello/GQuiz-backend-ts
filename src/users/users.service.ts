@@ -1,10 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource, In, Not } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UserProfile } from './entities/user-profile.entity';
 import { Quiz } from '../quiz/entities/quiz.entity';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { UserRecentActivity, ActivityEntityType } from './entities/user-recent-activity.entity';
+import { QuizAttempt, AttemptStatus } from '../quiz/entities/quiz-attempt.entity';
+import { ClassMember } from '../classes/entities/class-member.entity';
+import { ClassQuiz } from '../classes/entities/class-quiz.entity';
 
 @Injectable()
 export class UsersService {
@@ -12,6 +16,8 @@ export class UsersService {
     @InjectRepository(User) private userRepository: Repository<User>,
     @InjectRepository(UserProfile) private profileRepository: Repository<UserProfile>,
     @InjectRepository(Quiz) private quizRepository: Repository<Quiz>,
+    @InjectRepository(UserRecentActivity) private activityRepo: Repository<UserRecentActivity>,
+    @InjectRepository(QuizAttempt) private attemptRepo: Repository<QuizAttempt>,
     private dataSource: DataSource,
   ) {}
 
@@ -117,5 +123,74 @@ export class UsersService {
       where: { id },
       relations: ['profile', 'starredQuizzes'], 
     });
+  }
+
+  async getDashboard(userId: number) {
+    // 1. Recent Classes (Activity Log)
+    const recentClasses = await this.activityRepo.find({
+      where: { user_id: userId, entity_type: ActivityEntityType.CLASS },
+      order: { last_interacted_at: 'DESC' },
+      take: 20,
+      select: ['entity_id'],
+    });
+
+    // 2. Recent Quizzes (Activity Log)
+    const recentQuizzes = await this.activityRepo.find({
+      where: { user_id: userId, entity_type: ActivityEntityType.QUIZ },
+      order: { last_interacted_at: 'DESC' },
+      take: 20, 
+      select: ['entity_id'],
+    });
+
+    // 3. Upcoming Quizzes 
+    const upcomingQuizzes = await this.dataSource
+      .createQueryBuilder()
+      .select('q.id')
+      .from(Quiz, 'q')
+      .innerJoin(ClassQuiz, 'cq', 'cq.quiz_id = q.id')
+      .innerJoin(ClassMember, 'cm', 'cm.class_id = cq.class_id')
+      .where('cm.user_id = :userId', { userId })
+      .andWhere('cm.status = :status', { status: 'active' }) 
+      .andWhere('q.validity_quiz_end > NOW()')
+      .distinct(true)
+      .getMany();
+
+    // 4. Completed Quizzes (Strictly Past: End Date < NOW)
+    const completedQuizzes = await this.dataSource
+      .createQueryBuilder()
+      .select('q.id')
+      .from(Quiz, 'q')
+      .innerJoin(ClassQuiz, 'cq', 'cq.quiz_id = q.id')
+      .innerJoin(ClassMember, 'cm', 'cm.class_id = cq.class_id')
+      .where('cm.user_id = :userId', { userId })
+      .andWhere('cm.status = :status', { status: 'active' }) 
+      .andWhere('q.validity_quiz_end < NOW()')
+      .distinct(true)
+      .getMany();
+
+    return {
+      classes: recentClasses.map(rc => rc.entity_id),
+      quizzes: recentQuizzes.map(rq => rq.entity_id),
+      upcoming_quizzes: upcomingQuizzes.map(q => q.id),
+      completed_quizzes: completedQuizzes.map(q => q.id),
+    };
+  }
+
+  async logActivity(userId: number, type: ActivityEntityType, entityId: number) {
+    let activity = await this.activityRepo.findOne({
+      where: { user_id: userId, entity_type: type, entity_id: entityId }
+    });
+
+    if (activity) {
+      activity.last_interacted_at = new Date(); 
+    } else {
+      activity = this.activityRepo.create({
+        user_id: userId,
+        entity_type: type,
+        entity_id: entityId,
+      });
+    }
+
+    return this.activityRepo.save(activity);
   }
 }

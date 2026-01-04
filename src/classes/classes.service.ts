@@ -1,31 +1,19 @@
-import { Injectable, BadRequestException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { Class } from './entities/class.entity';
 import { ClassMember, MemberRole, MemberStatus } from './entities/class-member.entity';
-import { ClassQuiz } from './entities/class-quiz.entity';
 import { CreateClassDto } from './dto/create-class.dto';
-import { Quiz } from '../quiz/entities/quiz.entity';
+import { UserRecentActivity, ActivityEntityType } from '../users/entities/user-recent-activity.entity';
 
 @Injectable()
 export class ClassesService {
   constructor(
     @InjectRepository(Class) private classRepo: Repository<Class>,
-    @InjectRepository(Quiz) private quizRepo: Repository<Quiz>,
     private dataSource: DataSource, 
   ) {}
 
   async create(dto: CreateClassDto, ownerId: number) {
-
-    // Validate Quiz IDs
-    if (dto.quizzes_involved && dto.quizzes_involved.length > 0) {
-        const count = await this.quizRepo.count({
-            where: { id: In(dto.quizzes_involved) }
-        });
-        if (count !== dto.quizzes_involved.length) {
-            throw new BadRequestException('One or more quiz IDs in "quizzes_involved" are invalid.');
-        }
-    }
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -52,42 +40,25 @@ export class ClassesService {
 
       const savedClass = await queryRunner.manager.save(newClass);
 
-      // Prepare Members
-      const membersToSave: Partial<ClassMember>[] = [];
+      // Add the Owner as the sole Admin/Active Member
+      const ownerMember = new ClassMember();
+      ownerMember.class_id = savedClass.id;
+      ownerMember.user_id = ownerId;
+      ownerMember.role = MemberRole.ADMIN;
+      ownerMember.status = MemberStatus.ACTIVE;
 
-      // Helper to push members
-      const addMember = (userId: number, role: MemberRole, status: MemberStatus) => {
-        membersToSave.push({ class_id: savedClass.id, user_id: userId, role, status });
-      };
+      await queryRunner.manager.save(ClassMember, ownerMember);
 
-      // Process Admins (Active + Admin Role)
-      dto.admins.forEach(id => addMember(id, MemberRole.ADMIN, MemberStatus.ACTIVE));
+      // Log Recent Activity for the Owner
+      const activity = new UserRecentActivity();
+      activity.user_id = ownerId;
+      activity.entity_type = ActivityEntityType.CLASS;
+      activity.entity_id = savedClass.id;
+      activity.last_interacted_at = new Date();
 
-      // Process Active Members (Active + Member Role) - Exclude if already added as admin
-      dto.active_members.forEach(id => {
-        if (!dto.admins.includes(id)) {
-          addMember(id, MemberRole.MEMBER, MemberStatus.ACTIVE);
-        }
-      });
+      await queryRunner.manager.save(UserRecentActivity, activity);
 
-      // Process Waiting List
-      dto.waiting_list.forEach(id => addMember(id, MemberRole.MEMBER, MemberStatus.WAITING));
-
-      // Process Past Members
-      dto.past_members.forEach(id => addMember(id, MemberRole.MEMBER, MemberStatus.PAST));
-
-      await queryRunner.manager.insert(ClassMember, membersToSave);
-
-      // Prepare Quizzes
-      const quizzesToSave = dto.quizzes_involved.map(quizId => ({
-        class_id: savedClass.id,
-        quiz_id: quizId
-      }));
-
-      if (quizzesToSave.length > 0) {
-        await queryRunner.manager.insert(ClassQuiz, quizzesToSave);
-      }
-
+      // Commit
       await queryRunner.commitTransaction();
       return { message: 'Class created successfully', class_id: savedClass.id };
 
