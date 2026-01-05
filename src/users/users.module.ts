@@ -7,6 +7,7 @@ import { UserProfile } from './entities/user-profile.entity';
 import { Quiz } from '../quiz/entities/quiz.entity';
 import { UserRecentActivity } from './entities/user-recent-activity.entity'; 
 import { QuizAttempt } from '../quiz/entities/quiz-attempt.entity';
+import { Class } from '../classes/entities/class.entity';
 
 @Module({
   imports: [
@@ -15,7 +16,8 @@ import { QuizAttempt } from '../quiz/entities/quiz-attempt.entity';
       UserProfile, 
       Quiz, 
       UserRecentActivity, 
-      QuizAttempt         
+      QuizAttempt,
+      Class       
     ])
   ], 
   controllers: [UsersController], 

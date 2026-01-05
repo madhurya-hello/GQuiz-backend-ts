@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index, UpdateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index, UpdateDateColumn, Unique } from 'typeorm';
 import { User } from './user.entity';
 
 export enum ActivityEntityType {
@@ -7,6 +7,7 @@ export enum ActivityEntityType {
 }
 
 @Entity()
+@Unique(['user_id', 'entity_type', 'entity_id'])
 @Index(['user_id', 'entity_type', 'last_interacted_at'])
 export class UserRecentActivity {
   @PrimaryGeneratedColumn()

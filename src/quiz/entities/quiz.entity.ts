@@ -1,8 +1,9 @@
-import { Entity, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Index, PrimaryGeneratedColumn, Column, OneToMany, ManyToOne, JoinColumn, AfterLoad } from 'typeorm';
 import { QuizSection } from './quiz-section.entity';
 import { User } from '../../users/entities/user.entity';
 
 @Entity()
+@Index(['validity_quiz_start', 'validity_quiz_end'])
 export class Quiz {
   @PrimaryGeneratedColumn()
   id: number;
@@ -24,6 +25,9 @@ export class Quiz {
 
   @Column()
   quiz_duration: number; 
+
+  @Column({ default: 0 })
+  total_marks: number;
 
   @Column({ type: 'timestamp', nullable: true })
   result_declared: Date;

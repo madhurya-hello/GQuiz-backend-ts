@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, CreateDateColumn, Index } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Quiz } from './quiz.entity';
 
@@ -8,6 +8,7 @@ export enum AttemptStatus {
 }
 
 @Entity()
+@Index(['user_id', 'quiz_id']) // This makes checking if a user has attempted a quiz instant.
 export class QuizAttempt {
   @PrimaryGeneratedColumn()
   id: number;

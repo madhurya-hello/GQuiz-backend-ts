@@ -1,7 +1,8 @@
-import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryGeneratedColumn, Column, ManyToOne, JoinColumn, Index } from 'typeorm';
 import { Class } from './class.entity';
 
 @Entity()
+@Index(['class_id', 'quiz_id']) // speeds up fetching all quizzes for a list of classes
 export class ClassQuiz {
   @PrimaryGeneratedColumn()
   id: number;
