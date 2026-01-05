@@ -8,10 +8,15 @@ import { ClassQuiz } from '../classes/entities/class-quiz.entity';
 import { ClassMember } from '../classes/entities/class-member.entity';
 import { UserRecentActivity, ActivityEntityType } from '../users/entities/user-recent-activity.entity';
 import { MemberStatus } from '../classes/entities/class-member.entity';
+import { UserProfile } from '../users/entities/user-profile.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class QuizService {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    private notificationsService: NotificationsService,
+  ) {}
 
   async create(createQuizDto: any, userId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -46,6 +51,8 @@ export class QuizService {
       const savedQuiz = await queryRunner.manager.save(quiz);
 
       const allowedClassIds = access.allowed_classes || createQuizDto.allowed_classes || [];
+
+      let notificationData: any = null;
       
       if (allowedClassIds.length > 0) {
         const classQuizzesToSave = allowedClassIds.map((classId: number) => {
@@ -104,6 +111,36 @@ export class QuizService {
       );
 
       console.log(`Sending emails to: ${finalEmailList.join(', ')}`);
+
+
+      // Send Notifications
+
+      if (allowedClassIds.length > 0) {
+        // 1. Get Sender Info (Using the transaction manager)
+        const senderProfile = await queryRunner.manager.findOne(UserProfile, { where: { user_id: userId } });
+        const senderName = senderProfile ? `${senderProfile.firstName} ${senderProfile.lastName}` : 'Examiner';
+        const senderPhoto = senderProfile?.profilePhotoUrl || null;
+
+        // 2. Get Receivers (Unique users across all allowed classes)
+        const members = await queryRunner.manager.find(ClassMember, {
+          where: { 
+            class_id: In(allowedClassIds),
+            status: MemberStatus.ACTIVE 
+          }
+        });
+
+        // Deduplicate users (in case a student is in 2 math classes assigned the same quiz)
+        const uniqueUserIds = [...new Set(members.map(m => m.user_id))];
+
+        // Storing data to use after commit
+        notificationData = {
+          senderId: userId,
+          receiverIds: uniqueUserIds,
+          text: `New Quiz: ${createQuizDto.name}`,
+          senderName,
+          senderPhoto
+        };
+      }
       
 
       // Process Sections
@@ -166,6 +203,21 @@ export class QuizService {
       }
 
       await queryRunner.commitTransaction();
+
+      if (notificationData && notificationData.receiverIds.length > 0) {
+        for (const receiverId of notificationData.receiverIds) {
+           if (receiverId !== userId) {
+             await this.notificationsService.send(
+               receiverId,
+               notificationData.senderId,
+               notificationData.text,
+               notificationData.senderName,
+               notificationData.senderPhoto
+             );
+           }
+        }
+      }
+
       return { message: 'Quiz created successfully', quiz_id: savedQuiz.id };
 
     } catch (err) {

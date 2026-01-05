@@ -8,6 +8,7 @@ import { Quiz } from '../quiz/entities/quiz.entity';
 import { UserRecentActivity } from './entities/user-recent-activity.entity'; 
 import { QuizAttempt } from '../quiz/entities/quiz-attempt.entity';
 import { Class } from '../classes/entities/class.entity';
+import { NotificationsModule } from 'src/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -17,8 +18,9 @@ import { Class } from '../classes/entities/class.entity';
       Quiz, 
       UserRecentActivity, 
       QuizAttempt,
-      Class       
-    ])
+      Class,    
+    ]),
+    NotificationsModule
   ], 
   controllers: [UsersController], 
   providers: [UsersService],

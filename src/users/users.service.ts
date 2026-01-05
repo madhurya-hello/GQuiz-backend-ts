@@ -10,6 +10,7 @@ import { QuizAttempt} from '../quiz/entities/quiz-attempt.entity';
 import { ClassMember, MemberRole, MemberStatus } from '../classes/entities/class-member.entity';
 import { ClassQuiz } from '../classes/entities/class-quiz.entity';
 import { Class } from '../classes/entities/class.entity';
+import { NotificationsService } from 'src/notifications/notifications.service';
 
 @Injectable()
 export class UsersService {
@@ -21,6 +22,7 @@ export class UsersService {
     @InjectRepository(QuizAttempt) private attemptRepo: Repository<QuizAttempt>,
     @InjectRepository(Class) private classRepository: Repository<Class>,
     private dataSource: DataSource,
+    private notificationsService: NotificationsService,
   ) {}
 
   async findByEmail(email: string): Promise<User | null> {
@@ -276,9 +278,12 @@ export class UsersService {
       }).filter(item => item !== null);
     }
 
+    const hasUnread = await this.notificationsService.hasUnread(userId);
+
     return {
       classes: classesData,
       quizzes: quizzesData,
+      has_unread_notifications: hasUnread,
     };
   }
 

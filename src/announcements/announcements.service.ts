@@ -1,14 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Announcement } from './entities/announcement.entity';
 import { CreateAnnouncementDto } from './dto/create-announcement.dto';
+import { NotificationsService } from '../notifications/notifications.service';
+import { UserProfile } from '../users/entities/user-profile.entity';
+import { ClassMember, MemberStatus } from '../classes/entities/class-member.entity';
 
 @Injectable()
 export class AnnouncementsService {
   constructor(
-    @InjectRepository(Announcement)
-    private repo: Repository<Announcement>,
+    @InjectRepository(Announcement) private repo: Repository<Announcement>,
+    @InjectRepository(UserProfile) private profileRepo: Repository<UserProfile>,
+    @InjectRepository(ClassMember) private memberRepo: Repository<ClassMember>,
+    private notificationsService: NotificationsService,
   ) {}
 
   async create(dto: CreateAnnouncementDto, userId: number) {
@@ -27,6 +32,35 @@ export class AnnouncementsService {
     newAnnouncement.scheduled_at = dto.schedule_time ? new Date(dto.schedule_time) : null;
 
     const savedAnnouncement = await this.repo.save(newAnnouncement);
+
+    // NOTIFICATION LOGIC
+    // 1. Get Sender 
+    const senderProfile = await this.profileRepo.findOne({ where: { user_id: userId } });
+    const senderName = senderProfile ? `${senderProfile.firstName} ${senderProfile.lastName}` : 'Instructor';
+    const senderPhoto = senderProfile?.profilePhotoUrl || null;
+
+    // 2. Get Receivers
+    const members = await this.memberRepo.find({
+      where: { 
+        class_id: +dto.class_id, 
+        status: MemberStatus.ACTIVE 
+      }
+    });
+
+    // 3. Send Loop
+    const notificationText = `New Announcement: ${dto.title}`;
+    for (const member of members) {
+      // Don't notify the person who created it
+      if (member.user_id !== userId) {
+        await this.notificationsService.send(
+          member.user_id, 
+          userId, 
+          notificationText, 
+          senderName, 
+          senderPhoto
+        );
+      }
+    }
 
     return { announcement_id: savedAnnouncement.id };
   }
