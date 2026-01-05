@@ -136,7 +136,7 @@ export class UsersService {
       select: ['entity_id'],
     });
 
-    const classIds = [...new Set(recentClassActivities.map((rc) => rc.entity_id))];
+    const classIds = recentClassActivities.map((rc) => rc.entity_id);
     let classesData: any[] = [];
 
     if (classIds.length > 0) {
@@ -223,7 +223,7 @@ export class UsersService {
       select: ['entity_id'],
     });
 
-    const quizIds = [...new Set(recentQuizActivities.map((rq) => rq.entity_id))];
+    const quizIds = recentQuizActivities.map((rq) => rq.entity_id);
     let quizzesData: any[] = [];
 
     if (quizIds.length > 0) {
