@@ -1,14 +1,22 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource } from 'typeorm';
+import { DataSource, In } from 'typeorm';
 import { Quiz } from './entities/quiz.entity';
 import { QuizSection } from './entities/quiz-section.entity';
 import { Question } from './entities/question.entity';
 import { QuestionOption } from './entities/question-option.entity';
 import { ClassQuiz } from '../classes/entities/class-quiz.entity';
+import { ClassMember } from '../classes/entities/class-member.entity';
+import { UserRecentActivity, ActivityEntityType } from '../users/entities/user-recent-activity.entity';
+import { MemberStatus } from '../classes/entities/class-member.entity';
+import { UserProfile } from '../users/entities/user-profile.entity';
+import { NotificationsService } from '../notifications/notifications.service';
 
 @Injectable()
 export class QuizService {
-  constructor(private dataSource: DataSource) {}
+  constructor(
+    private dataSource: DataSource,
+    private notificationsService: NotificationsService,
+  ) {}
 
   async create(createQuizDto: any, userId: number) {
     const queryRunner = this.dataSource.createQueryRunner();
@@ -16,16 +24,9 @@ export class QuizService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. Create the Quiz Root
+      // Create the Quiz Root
       const quiz = new Quiz();
-
       quiz.user_id = userId;
-
-      if (createQuizDto.class_id) {
-        quiz.class_id = +createQuizDto.class_id; 
-      } else {
-        quiz.class_id = null;
-      }
 
       quiz.name = createQuizDto.name;
       quiz.description = createQuizDto.description;
@@ -39,20 +40,110 @@ export class QuizService {
         constraints: createQuizDto.constraints,
         upon_violation: createQuizDto.upon_violation,
       };
+
+      const access = createQuizDto.quiz_access || {};
       
-      quiz.access_control = createQuizDto.quiz_access;
+      quiz.allowed_emails = access.allowed_emails || createQuizDto.allowed_emails || [];
+      quiz.blocked_emails = access.blocked_emails || createQuizDto.blocked_emails || [];
+      quiz.allowed_email_domains = access.allowed_email_domains || createQuizDto.allowed_email_domains || [];
+      quiz.blocked_email_domains = access.blocked_email_domains || createQuizDto.blocked_email_domains || [];
 
       const savedQuiz = await queryRunner.manager.save(quiz);
 
-      // If linked to a class, update the ClassQuiz table
-      if (savedQuiz.class_id) {
-        const classQuiz = new ClassQuiz();
-        classQuiz.class_id = savedQuiz.class_id;
-        classQuiz.quiz_id = savedQuiz.id;
-        await queryRunner.manager.save(classQuiz);
+      const allowedClassIds = access.allowed_classes || createQuizDto.allowed_classes || [];
+
+      let notificationData: any = null;
+      
+      if (allowedClassIds.length > 0) {
+        const classQuizzesToSave = allowedClassIds.map((classId: number) => {
+          const cq = new ClassQuiz();
+          cq.class_id = classId;
+          cq.quiz_id = savedQuiz.id;
+          return cq;
+        });
+        await queryRunner.manager.save(ClassQuiz, classQuizzesToSave);
+
+        // Add to Recent Activity
+        const activeMembers = await queryRunner.manager.find(ClassMember, {
+            where: { 
+                class_id: In(allowedClassIds),
+                status: MemberStatus.ACTIVE 
+            },
+            select: ['user_id']
+        });
+        if (activeMembers.length > 0) {
+            const uniqueUserIds = [...new Set(activeMembers.map(m => m.user_id))];
+            const activities = uniqueUserIds.map(userId => {
+                const activity = new UserRecentActivity();
+                activity.user_id = userId;
+                activity.entity_type = ActivityEntityType.QUIZ;
+                activity.entity_id = savedQuiz.id;
+                activity.last_interacted_at = new Date();
+                return activity;
+            });
+            await queryRunner.manager.save(UserRecentActivity, activities);
+        }
       }
 
-      // 2. Process Sections
+
+      // Calculate and Log Emails
+
+      // A. Get emails from Class Members
+      let classMemberEmails: string[] = [];
+      if (allowedClassIds.length > 0) {
+        const members = await queryRunner.manager.find(ClassMember, {
+          where: { class_id: In(allowedClassIds) },
+          relations: ['user'],
+        });
+        classMemberEmails = members.map((m) => m.user.email);
+      }
+      // B. Combine with explicitly allowed emails
+      const rawAllowedEmails = access.allowed_emails || createQuizDto.allowed_emails || [];
+      const allPotentialEmails = [...rawAllowedEmails, ...classMemberEmails];
+      
+      // C. Remove Duplicates
+      const uniqueEmails = [...new Set(allPotentialEmails)];
+      
+      // D. Filter out Blocked Emails
+      const blockedEmails = access.blocked_emails || createQuizDto.blocked_emails || [];
+      const finalEmailList = uniqueEmails.filter(
+        (email) => !blockedEmails.includes(email)
+      );
+
+      console.log(`Sending emails to: ${finalEmailList.join(', ')}`);
+
+
+      // Send Notifications
+
+      if (allowedClassIds.length > 0) {
+        // 1. Get Sender Info (Using the transaction manager)
+        const senderProfile = await queryRunner.manager.findOne(UserProfile, { where: { user_id: userId } });
+        const senderName = senderProfile ? `${senderProfile.firstName} ${senderProfile.lastName}` : 'Examiner';
+        const senderPhoto = senderProfile?.profilePhotoUrl || null;
+
+        // 2. Get Receivers (Unique users across all allowed classes)
+        const members = await queryRunner.manager.find(ClassMember, {
+          where: { 
+            class_id: In(allowedClassIds),
+            status: MemberStatus.ACTIVE 
+          }
+        });
+
+        // Deduplicate users (in case a student is in 2 math classes assigned the same quiz)
+        const uniqueUserIds = [...new Set(members.map(m => m.user_id))];
+
+        // Storing data to use after commit
+        notificationData = {
+          senderId: userId,
+          receiverIds: uniqueUserIds,
+          text: `New Quiz: ${createQuizDto.name}`,
+          senderName,
+          senderPhoto
+        };
+      }
+      
+
+      // Process Sections
       const incomingSections = createQuizDto.quiz_section.sections;
 
       for (const secData of incomingSections) {
@@ -73,7 +164,7 @@ export class QuizService {
 
         const savedSection = await queryRunner.manager.save(section);
 
-        // 3. Process Questions
+        // Process Questions
         for (const qData of secData.questions) {
           const question = new Question();
           question.section = savedSection;
@@ -87,14 +178,14 @@ export class QuizService {
           // Store Type-Specific Data (Code config, etc.) in Metadata
           const { code_config, auto_evaluate_using_ai, mcq_type } = qData;
           question.metadata = {
-            code_config, // Will be null for MCQs, handled automatically
+            code_config, 
             auto_evaluate_using_ai,
             mcq_type
           };
 
           const savedQuestion = await queryRunner.manager.save(question);
 
-          // 4. Process Options (Only for MCQ)
+          // Process Options (Only for MCQ)
           if (qData.options && qData.options.length > 0) {
             const optionsToSave = qData.options.map((opt) => {
               const option = new QuestionOption();
@@ -103,7 +194,6 @@ export class QuizService {
               option.text = opt.text;
               option.image_urls = opt.image_urls;
               // Check if this option index is in the correct_options_index array
-              // Note: Payload uses 0-based index for correctness
               option.is_correct = qData.correct_options_index.includes(qData.options.indexOf(opt));
               return option;
             });
@@ -113,6 +203,21 @@ export class QuizService {
       }
 
       await queryRunner.commitTransaction();
+
+      if (notificationData && notificationData.receiverIds.length > 0) {
+        for (const receiverId of notificationData.receiverIds) {
+           if (receiverId !== userId) {
+             await this.notificationsService.send(
+               receiverId,
+               notificationData.senderId,
+               notificationData.text,
+               notificationData.senderName,
+               notificationData.senderPhoto
+             );
+           }
+        }
+      }
+
       return { message: 'Quiz created successfully', quiz_id: savedQuiz.id };
 
     } catch (err) {

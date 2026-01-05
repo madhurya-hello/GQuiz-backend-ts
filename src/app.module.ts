@@ -10,6 +10,7 @@ import { AuthModule } from './auth/auth.module';
 import { ClassesModule } from './classes/classes.module';
 import { QuizModule } from './quiz/quiz.module';
 import { AnnouncementsModule } from './announcements/announcements.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -30,6 +31,7 @@ import { AnnouncementsModule } from './announcements/announcements.module';
     ClassesModule,
     QuizModule,
     AnnouncementsModule,
+    NotificationsModule,
   ],
   controllers: [AppController, TestController],
   providers: [AppService],

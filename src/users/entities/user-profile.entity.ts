@@ -31,6 +31,9 @@ export class UserProfile {
   @Column({ default: false, name: 'email_verified' })
   emailVerified: boolean;
 
+  @Column({ name: 'roll_no', nullable: true })
+  rollNo: string;
+
   // URLs
   @Column({ name: 'profile_photo_url', nullable: true })
   profilePhotoUrl: string;
@@ -43,10 +46,10 @@ export class UserProfile {
   social_links: Record<string, string>; // linkedin, twitter, etc.
 
   @Column({ type: 'json', nullable: true })
-  academic_info: Record<string, any>; // university_name, semester, roll_no, etc.
+  academic_info: Record<string, any>; // university_name, semester, etc.
 
-  @Column({ type: 'json', nullable: true })
-  preferences: Record<string, any>; // hidden_elements, notifications
+  @Column({ type: 'json', nullable: true, name: 'hidden_elements' })
+  hiddenElements: string[];
 
   @Column({ type: 'timestamp', nullable: true, name: 'profile_last_updated' })
   profileLastUpdated: Date;
