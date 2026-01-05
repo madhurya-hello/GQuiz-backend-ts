@@ -77,6 +77,7 @@ export class UsersService {
     if (dto.email_verified !== undefined) profile.emailVerified = dto.email_verified;
     if (dto.profile_photo_url) profile.profilePhotoUrl = dto.profile_photo_url;
     if (dto.profile_banner_url) profile.profileBannerUrl = dto.profile_banner_url;
+    if (dto.roll_no) profile.rollNo = dto.roll_no;
 
     // 2. Map JSON Fields (Socials)
     const newSocials = { ...profile.social_links };
@@ -90,18 +91,17 @@ export class UsersService {
     const newAcademic = { ...profile.academic_info };
     const academicKeys = [
       'university_name', 'current_semester', 'current_college_section', 'current_cgpa',
-      'school_name', 'current_standard', 'current_school_section', 'roll_no'
+      'school_name', 'current_standard', 'current_school_section'
     ];
     academicKeys.forEach(key => {
       if (dto[key] !== undefined) newAcademic[key] = dto[key];
     });
     profile.academic_info = newAcademic;
 
-    // 4. Map JSON Fields (Preferences)
-    const newPrefs = { ...profile.preferences };
-    if (dto.hidden_elements) newPrefs['hidden_elements'] = dto.hidden_elements;
-    if (dto.notifications) newPrefs['notifications'] = dto.notifications;
-    profile.preferences = newPrefs;
+    // 4. Map Hidden Elements
+    if (dto.hidden_elements) {
+      profile.hiddenElements = dto.hidden_elements;
+    }
 
     profile.profileLastUpdated = new Date();
 
